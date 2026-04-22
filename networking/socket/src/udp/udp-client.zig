@@ -5,7 +5,7 @@ const Io = std.Io;
 
 const SERVER_PORT: u16 = 5001;
 const IPv4 = linux.AF.INET;
-const DATAGRRAM = linux.SOCK.DGRAM; // datagrams, connecionless unreliable messages
+const DATAGRAM = linux.SOCK.DGRAM; // datagrams, connecionless unreliable messages
 const LOCAL_HOST: u32 = 0x7F000001; // 127.0.0.1
 
 pub fn main(init: std.process.Init) !void {
@@ -21,7 +21,7 @@ pub fn main(init: std.process.Init) !void {
     const msg = args[1..];
 
     // socket syscall
-    const sockfd = linux.socket(IPv4, DATAGRRAM, 0);
+    const sockfd = linux.socket(IPv4, DATAGRAM, 0);
 
     // handle failure
     if (linux.errno(sockfd) != .SUCCESS) {
