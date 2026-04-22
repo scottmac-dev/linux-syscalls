@@ -1,6 +1,6 @@
 //! TCP echo server demonstrating the `socket` syscall
 //! Syscalls used:
-//!     sockt, setsocketopt, bind, listen, accept, connect, send, recv, close
+//!     sockt, setsocketopt, bind, listen, accept, connect, sendTo, recvFrom, close
 const std = @import("std");
 const linux = std.os.linux;
 const Io = std.Io;
@@ -84,7 +84,7 @@ pub fn main(init: std.process.Init) !void {
 
             // recvfrom returns 0 when client closes connection
             if (received == 0) {
-                try stdout.writeAll("client disconnected\n");
+                try stdout.writeAll("[server] client disconnected\n");
                 try stdout.flush();
                 break;
             }

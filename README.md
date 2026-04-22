@@ -1,6 +1,14 @@
 ## Exploring, learning, documenting, implementing linux syscalls
 
-### Syscalls 
+### Syscalls Done
+NETWORKING
+- socket
+- bind 
+- listen 
+- connect
+- accept
+- send / recv
+- setsockopt
 
 ### TODO
 PROCESS
@@ -43,13 +51,7 @@ FILESYSTEM
 - mkdir / unlink / rename
 
 NETWORKING
-- socket
-- bind 
-- listen 
-- connect
 - accept4
-- send / recv
-- setsockopt
 - getaddrinfo
 - socketpair: bidirectional pipe and IPC
 
