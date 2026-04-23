@@ -24,5 +24,14 @@
     - server: `zig run udp-server.zig`
     - client: `zig run udp-client.zig -- <all of your messages...> `
     
-
-
+### Ping
+- recreates the ping command in zig but only using minimal 8 byte ICMP header 
+- transmits and receives pings using ICMP protocol
+- uses zig stdlib hostname resolve interfaces
+- note: will probably require you to run `sudo sysctl -w net.ipv4.ping_group_range="0 2147483647"` to override network permissions
+- usage: 
+    1. zig build-exe ping.zig
+        1.1 do network priveleges on executable if failing 
+    2. sudo ./ping <address>
+    3. ctrl + C to exit, print stats on exit
+- example: sudo ./ping google.com

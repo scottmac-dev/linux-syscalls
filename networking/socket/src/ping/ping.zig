@@ -1,9 +1,9 @@
-//! Ping cli that sends ICMP packets to a address with a TTL to test connectivity
+//! Ping cli that sends ICMP packets to a specified address to test connectivity
+//! Note this just uses a 8 byte header, no payload like ping
 const std = @import("std");
 const linux = std.os.linux;
 const Io = std.Io;
 
-//const words = std.mem.bytesAsSlice(u16, raw_bytes);
 const PORT: u16 = 5001;
 const IPv4 = linux.AF.INET;
 const DATAGRAM = linux.SOCK.DGRAM; // datagrams, connecionless unreliable messages
@@ -14,12 +14,16 @@ var ttl: u32 = 64;
 var min_time_ms: f64 = std.math.inf(f64);
 var max_time_ms: f64 = -std.math.inf(f64);
 var sum_time_ms: f64 = 0;
+
+var send_count: usize = 0;
 var recv_count: usize = 0;
 var current_sequence: u16 = 1;
 
 var send_packet: PingPacket = undefined;
 var recv_packet: PingPacket = undefined;
 var start_time: linux.timespec = undefined;
+
+var interrupted: bool = false; // handle SIGINT
 
 const IcmpHdr = extern struct {
     type: u8,
@@ -50,7 +54,15 @@ fn checksum(data: []const u16) u16 {
     return ~@as(u16, @truncate(sum)) +% @as(u16, @truncate(sum >> 16));
 }
 
-fn printStats() void {
+fn sigintHandler(sig: linux.SIG) callconv(.c) void {
+    _ = sig;
+    interrupted = true;
+}
+
+fn printStats(addr_str: []const u8) void {
+    std.debug.print("\n--- {s} ping statistics ---\n", .{addr_str});
+    const loss = 100 - ((recv_count / send_count) * 100);
+    std.debug.print("{d} packets transmitted, {d} received, {d}% packet loss\n", .{ send_count, recv_count, loss });
     const avg = if (recv_count > 0) sum_time_ms / @as(f64, @floatFromInt(recv_count)) else 0.0;
     std.debug.print("rtt min/avg/max/mdev = {d:.3}/{d:.3}/{d:.3}/{d:.3} ms\n", .{
         min_time_ms,
@@ -80,6 +92,7 @@ fn ping(sock: usize, dest_addr: *const linux.sockaddr, dest_addr_len: linux.sock
         dest_addr,
         dest_addr_len,
     );
+    send_count += 1;
 
     if (linux.errno(sent) != .SUCCESS)
         return error.PingSendFailed;
@@ -103,6 +116,14 @@ pub fn main(init: std.process.Init) !void {
 
     // get address arg
     const dest_addr_str = args[1];
+
+    // use SIGINT handler before doing anything else
+    const sa = linux.Sigaction{
+        .handler = .{ .handler = sigintHandler },
+        .mask = std.mem.zeroes(linux.sigset_t),
+        .flags = 0,
+    };
+    _ = linux.sigaction(linux.SIG.INT, &sa, null);
 
     // resolve hostname
     const host_name = try Io.net.HostName.init(dest_addr_str);
@@ -178,7 +199,7 @@ pub fn main(init: std.process.Init) !void {
     try ping(sock, &sockaddr, dest_sockaddr_len);
 
     // receive loop
-    while (true) {
+    while (!interrupted) {
         var recv_sockaddr: linux.sockaddr = undefined;
         var recv_sockaddr_len: linux.socklen_t = @sizeOf(linux.sockaddr);
         const recv_bytes = std.mem.asBytes(&recv_packet);
@@ -191,6 +212,10 @@ pub fn main(init: std.process.Init) !void {
             @ptrCast(&recv_sockaddr),
             &recv_sockaddr_len,
         );
+
+        // recvfrom returns -1 (EINTR) when interrupted by a signal
+        if (linux.errno(received) == .INTR) break;
+
         // recvfrom returns 0 when client closes connection
         if (received == 0) {
             std.debug.print("recvfrom failed\n", .{});
@@ -223,6 +248,10 @@ pub fn main(init: std.process.Init) !void {
 
         // Wait interval then send next
         try Io.sleep(io, .fromSeconds(1), .real);
-        try ping(sock, &sockaddr, dest_sockaddr_len);
+
+        if (!interrupted) {
+            try ping(sock, &sockaddr, dest_sockaddr_len);
+        }
     }
+    printStats(dest_addr_str);
 }

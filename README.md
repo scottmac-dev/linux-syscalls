@@ -9,6 +9,7 @@ NETWORKING
 - accept
 - send / recv
 - setsockopt
+- getaddrinfo (via zig interfaces, kind of)
 
 ### TODO
 PROCESS
@@ -52,7 +53,6 @@ FILESYSTEM
 
 NETWORKING
 - accept4
-- getaddrinfo
 - socketpair: bidirectional pipe and IPC
 
 MISC
