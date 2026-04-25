@@ -11,6 +11,13 @@ NETWORKING
 - setsockopt
 - getaddrinfo (via zig interfaces, kind of)
 
+FILESYSTEM
+- sendfile: alloc free file transfer
+- open
+- close
+- stat / statx
+- read
+
 ### TODO
 PROCESS
 - fork: forks child process
@@ -37,17 +44,11 @@ MEMORY
 - masvise
 - memfd_create
 
-FILE I/O
-- open / openat
-- read
-- write
-- close
-- lseek
-- stat / statx
-- ioctl
-- sendfile: alloc free file transfer
-
 FILESYSTEM
+- openat
+- write
+- lseek
+- ioctl
 - inotify: file system watching and notification
 - mkdir / unlink / rename
 
