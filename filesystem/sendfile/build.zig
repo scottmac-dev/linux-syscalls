@@ -16,7 +16,7 @@ pub fn build(b: *std.Build) void {
     // to the module defined above, it's sometimes preferable to split business
     // logic and the CLI into two separate modules.
     const exe = b.addExecutable(.{
-        .name = "socket",
+        .name = "sendfile",
         .root_module = b.createModule(.{
             // b.createModule defines a new module just like b.addModule but,
             // unlike b.addModule, it does not expose the module to consumers of
@@ -81,3 +81,4 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_exe_tests.step);
 }
+
