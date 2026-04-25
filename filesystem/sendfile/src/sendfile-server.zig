@@ -4,6 +4,11 @@
 //!
 //! This example runs a sendfile server which uses sendfile to
 //! transfer text file to a receiver socket
+//!
+//! Syscalls
+//!     - sendfile: zero alloc data trasfer between fds
+//!     - open: open file
+//!     - statx: modern stat, get file metadata, only requesting size
 const std = @import("std");
 const linux = std.os.linux;
 const Io = std.Io;
@@ -29,10 +34,18 @@ pub fn main(init: std.process.Init) !void {
     if (linux.errno(filefd) != .SUCCESS) return error.OpenFailed;
     defer _ = linux.close(@intCast(filefd));
 
-    // Get file size so sendfile knows how many bytes to transfer
-    var stat: linux.STATX = undefined;
-    const rc_stat = linux.statx(@intCast(filefd), &stat);
+    // get file size so sendfile knows how many bytes to transfer
+    var stat: linux.Statx = undefined;
+    const rc_stat = linux.statx(
+        @intCast(filefd),
+        "",
+        linux.AT.EMPTY_PATH,
+        linux.STATX.BASIC_STATS,
+        &stat,
+    );
     if (linux.errno(rc_stat) != .SUCCESS) return error.StatFailed;
+
+    // extract from stat return
     const file_size: usize = @intCast(stat.size);
 
     // set up socket
@@ -45,7 +58,7 @@ pub fn main(init: std.process.Init) !void {
     const rc_opt = linux.setsockopt(
         @intCast(sockfd),
         linux.SOL.SOCKET,
-        linux.SO.REUSEADDR, // can reuse immediately, no TIME_WAIT debounce
+        linux.SO.REUSEADDR,
         std.mem.asBytes(&enable),
         @sizeOf(i32),
     );
@@ -72,7 +85,7 @@ pub fn main(init: std.process.Init) !void {
     try stdout.writeAll("[server] listening on 127.0.0.1:5001\n");
     try stdout.flush();
 
-    // super loop, accept and echo
+    // super loop, accept connections and send file data to client
     while (true) {
         var client_addr: linux.sockaddr.in = undefined;
         var client_addrlen: linux.socklen_t = @sizeOf(linux.sockaddr.in);
@@ -85,38 +98,27 @@ pub fn main(init: std.process.Init) !void {
         if (linux.errno(clientfd) != .SUCCESS) return error.AcceptFailed;
         defer _ = linux.close(@intCast(clientfd));
 
-        try stdout.writeAll("[server] client connected\n");
+        try stdout.writeAll("[server] client connected, sending file data.txt\n");
         try stdout.flush();
 
-        // echo loop: recv then send back
-        var buf: [1024]u8 = undefined;
-        while (true) {
-            const received = linux.recvfrom(
-                @intCast(clientfd),
-                &buf,
-                buf.len,
-                0,
-                null,
-                null,
-            );
+        var offset: linux.off_t = 0; // set to 0 so full file sent each time
+        var remaining: usize = file_size; // bytes to send
 
-            // recvfrom returns 0 when client closes connection
-            if (received == 0) {
-                try stdout.writeAll("[server] client disconnected\n");
-                try stdout.flush();
-                break;
-            }
-            if (linux.errno(received) != .SUCCESS) return error.RecvFailed;
-
-            const sent = linux.sendto(
-                @intCast(clientfd),
-                buf[0..received].ptr,
-                received,
-                0,
-                null,
-                0,
+        // sendfile transfer until all bytes sent
+        // requires loop incase send is interrupted to guarantee full transfer
+        while (remaining > 0) {
+            const sent = linux.sendfile(
+                @intCast(clientfd), // out = client socket
+                @intCast(filefd), // in = data.txt
+                &offset,
+                remaining,
             );
-            if (linux.errno(sent) != .SUCCESS) return error.SendFailed;
+            if (sent == 0) break; // socket closed
+            if (linux.errno(sent) != .SUCCESS) return error.SendFileFailed;
+            remaining -= sent;
         }
+
+        try stdout.writeAll("[server] file sent\n");
+        try stdout.flush();
     }
 }
