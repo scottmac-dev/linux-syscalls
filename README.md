@@ -17,6 +17,7 @@ FILESYSTEM
 - close
 - stat / statx
 - read
+- inotify: file system watching and notification
 
 ### TODO
 PROCESS
@@ -49,7 +50,6 @@ FILESYSTEM
 - write
 - lseek
 - ioctl
-- inotify: file system watching and notification
 - mkdir / unlink / rename
 
 NETWORKING
