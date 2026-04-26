@@ -30,8 +30,8 @@
 - uses zig stdlib hostname resolve interfaces
 - note: will probably require you to run `sudo sysctl -w net.ipv4.ping_group_range="0 2147483647"` to override network permissions
 - usage: 
-    1. zig build-exe ping.zig
-        1.1 do network priveleges on executable if failing 
-    2. sudo ./ping <address>
-    3. ctrl + C to exit, print stats on exit
-- example: sudo ./ping google.com
+    - zig build-exe ping.zig
+    - do network priveleges on produced executable if failing due to permissions
+    - sudo ./ping <address>
+    - ctrl + C to exit, will print stats on exit
+- example: `sudo ./ping google.com`
