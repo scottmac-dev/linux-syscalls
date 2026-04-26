@@ -130,3 +130,39 @@ pub fn inotifyYield(
 
     return @ptrCast(@alignCast(buf.ptr + offset));
 }
+
+/// Calls inotify_rm_watch to cleanup whe watch descriptor
+/// Removes the watch descriptor `wd` from the inotify instance `fd`.
+pub fn clearWd(fd: i32, wd: i32) !void {
+    const rc = linux.syscall2(
+        linux.SYS.inotify_rm_watch,
+        @bitCast(@as(isize, fd)),
+        @bitCast(@as(isize, wd)),
+    );
+    return switch (linux.errno(rc)) {
+        .SUCCESS => {},
+        .BADF => error.InvalidFileDescriptor,
+        .INVAL => error.InvalidWatchDescriptor, // wd not valid for this fd
+        else => |err| posix.unexpectedErrno(err),
+    };
+}
+
+/// Wraps poll(2). Blocks until one of the fds in `fds` is ready or `timeout_ms` elapses.
+/// Pass timeout_ms = -1 to block indefinitely.
+pub fn pollFds(fds: []linux.pollfd, timeout_ms: i32) !usize {
+    const rc = linux.syscall3(
+        linux.SYS.poll,
+        @intFromPtr(fds.ptr),
+        @as(usize, fds.len),
+        @bitCast(@as(isize, timeout_ms)),
+    );
+    return switch (linux.errno(rc)) {
+        .SUCCESS => rc,
+        .INTR => 0, // interrupted by signal, treat as timeout
+        .BADF => error.InvalidFileDescriptor,
+        .FAULT => unreachable,
+        .INVAL => error.InvalidArguments,
+        .NOMEM => error.SystemResources,
+        else => |err| posix.unexpectedErrno(err),
+    };
+}

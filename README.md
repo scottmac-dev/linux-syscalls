@@ -17,7 +17,10 @@ FILESYSTEM
 - close
 - stat / statx
 - read
+- write
 - inotify: file system watching and notification
+- poll 
+- signals -> sigaction
 
 ### TODO
 PROCESS
@@ -32,7 +35,6 @@ UNIX
 - pipe2
 - dup 2/3
 - epoll_* 
-- poll 
 - eventfd
 - timerds
 - signals -> kill, sigaction, sigprocmask, singalfd, sigalstack
@@ -47,7 +49,6 @@ MEMORY
 
 FILESYSTEM
 - openat
-- write
 - lseek
 - ioctl
 - mkdir / unlink / rename

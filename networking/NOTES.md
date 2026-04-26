@@ -1,4 +1,4 @@
-## Socket examples notes
+## Networking syscalls examples notes
 
 ### TCP
 - creates a basic client server connection over TCP
