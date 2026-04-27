@@ -71,6 +71,7 @@ fn recvExact(fd: i32, buf: []u8) !void {
 // perform upgrade handshake
 pub fn handshake(fd: i32, buf: []u8) !void {
     const headers = try recvHeaders(fd, buf);
+    std.debug.print("[debug] raw headers:\n{s}\n---\n", .{headers});
 
     const ws_key = extractHeader(headers, "Sec-WebSocket-Key") orelse
         return error.MissingWebSocketKey;
