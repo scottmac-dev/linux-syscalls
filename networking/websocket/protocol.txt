@@ -1,0 +1,55 @@
+Websocket protocol
+
+Begins with HTTP/1.1 handshake
+
+Client sends
+============
+GET / HTTP/1.1
+Host: localhost:5001
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+
+Server responds 
+===============
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+
+After this handshake, all communications are framed and both ends use this format
+
+WS Minimal Frame Format
+=======================
+Byte 0: FIN bit (1) + opcode (0x1 = text, 0x2 = binary, 0x8 = close)
+Byte 1: MASK bit + payload length (7-bit)
+[2 bytes if length == 126, 8 bytes if length == 127]
+[4 bytes masking key, if MASK bit set]
+[payload XOR'd with masking key]
+
+Data frame types
+- Text 0x1 = UTF-8 encoded text data 
+- Binary 0x2 = binary data 
+- Continuation 0x0 = carrier fragments transmitted over multiple frames 
+- Close 0x8 = initiate or respond to closed connection
+- Ping 0x9 = hearbeat msg 
+- Pong 0xA = heartbeat reply
+
+Data frame components 
+- FIN bit = set to 1 if final fragment of a message, 0 if partial with continuation over following frames 
+- Opcode = 4-bit value determining frame type 
+- Mask bit = indicates if frame is masked, required client -> server 
+- Payload length = size of data
+
+Notes
+- Sec-WebSocket-Accept value derived from clients key, key is concatenated with magic string, SHA-1 hashed then 
+base64 encoded. Required as a part of RFC, used to prevent vulnerabilities and establish ongoing provable connection
+- Client -> server frames always masked, server -> client not masked 
+
+Impl
+1. parse HTTP request, extract Sec-WebSocket-Key header 
+2. compute and accept key with SHA-1 and base64
+3. send 101 response with computed accept key 
+4. frame parsing, replace normal send / recv with frameheaders and correct formatting 
+5. handle close opcode and echo back, then break connection
