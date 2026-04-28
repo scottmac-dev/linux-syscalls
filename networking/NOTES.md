@@ -35,3 +35,20 @@
     - sudo ./ping <address>
     - ctrl + C to exit, will print stats on exit
 - example: `sudo ./ping google.com`
+
+### Websocket
+- creates a very primitive chat server using the web socket protocol 
+- connects over http 1.1, does not support full http, only the http handshake
+- spawns client connections as threads allowing them to send messages to a
+  shared chat feed 
+- note: this is a very basic and not thoroughly tested impl, more a proof of
+  concept of the websocket than a fully supported version. currently mutex
+  errors are disregarded and does not guarantee thread safety. does work though 
+- index.html acts as the client you can run in the browser to connect and send
+  messages which are broadcasted across client connections. open multiple
+  versions of this to demonstrate the multi client connect, spawn and broadcast
+- usage:
+    - `zig run ws-server.zig` - runs on port 5001
+    - open `index.html` client in your web browser and use the very basic inputs
+      to connect and send messages reflected in the server stdout and client
+      page.

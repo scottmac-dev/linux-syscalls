@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <input id="name" placeholder="your name" />
+  <button onclick="connect()">Connect</button>
+  <br><br>
+  <input id="msg" placeholder="message" />
+  <button onclick="send()">Send</button>
+  <pre id="log"></pre>
+
+<script>
+let ws;
+const log = (s) => document.getElementById("log").textContent += s + "\n";
+
+function connect() {
+    const name = document.getElementById("name").value;
+    ws = new WebSocket("ws://127.0.0.1:5001");
+    ws.onopen = () => { ws.send(name); log("connected as " + name); };
+    ws.onmessage = (e) => log(e.data);
+    ws.onclose = () => log("disconnected");
+}
+
+function send() {
+    const msg = document.getElementById("msg").value;
+    ws.send(msg);
+    document.getElementById("msg").value = "";
+}
+</script>
+</body>
+</html>

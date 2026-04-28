@@ -3,6 +3,13 @@ const linux = std.os.linux;
 
 const MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"; // server magic key
 
+// WS Opcodes supported in minimal impl
+pub const OP_TEXT: u8 = 0x1;
+pub const OP_BINARY: u8 = 0x2;
+pub const OP_CLOSE: u8 = 0x8;
+pub const OP_PING: u8 = 0x9;
+pub const OP_PONG: u8 = 0xA;
+
 pub const Frame = struct {
     opcode: u8,
     payload: []u8, // points into caller's buffer, already unmasked
@@ -71,7 +78,7 @@ fn recvExact(fd: i32, buf: []u8) !void {
 // perform upgrade handshake
 pub fn handshake(fd: i32, buf: []u8) !void {
     const headers = try recvHeaders(fd, buf);
-    std.debug.print("[debug] raw headers:\n{s}\n---\n", .{headers});
+    //std.debug.print("[debug] raw headers:\n{s}\n---\n", .{headers});
 
     const ws_key = extractHeader(headers, "Sec-WebSocket-Key") orelse
         return error.MissingWebSocketKey;
@@ -92,7 +99,7 @@ pub fn handshake(fd: i32, buf: []u8) !void {
             "\r\n",
         .{accept_key},
     );
-    std.debug.print("[debug] response:\n{s}\n", .{response});
+    //std.debug.print("[debug] response:\n{s}\n", .{response});
 
     const sent = linux.sendto(fd, response.ptr, response.len, 0, null, 0);
     if (linux.errno(sent) != .SUCCESS) return error.SendFailed;
