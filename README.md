@@ -22,22 +22,24 @@ FILESYSTEM
 - poll 
 - signals -> sigaction
 
-### TODO
-PROCESS
+PROCESS 
 - fork: forks child process
 - execve: executes child process
+- pipe2
+
+### TODO
+PROCESS
 - wait4
 - clone: syscall behind fork
 - exit_group
 - getpid / gettid: accessing process ids
 
 UNIX
-- pipe2
 - dup 2/3
 - epoll_* 
 - eventfd
 - timerds
-- signals -> kill, sigaction, sigprocmask, singalfd, sigalstack
+- signals -> kill, sigprocmask, singalfd, sigalstack
 
 MEMORY
 - mmap
