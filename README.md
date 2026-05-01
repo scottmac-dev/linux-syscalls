@@ -26,6 +26,7 @@ PROCESS
 - fork: forks child process
 - execve: executes child process
 - pipe2
+- dupe2
 
 ### TODO
 PROCESS
@@ -35,7 +36,7 @@ PROCESS
 - getpid / gettid: accessing process ids
 
 UNIX
-- dup 2/3
+- dup3
 - epoll_* 
 - eventfd
 - timerds
