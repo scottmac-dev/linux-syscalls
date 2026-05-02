@@ -20,7 +20,7 @@ FILESYSTEM
 - write
 - inotify: file system watching and notification
 - poll 
-- signals -> sigaction
+- signals -> sigaction, kill
 
 PROCESS 
 - fork: forks child process
@@ -30,6 +30,13 @@ PROCESS
 - tee
 - splice
 - waitpid
+- getpid
+
+MISC 
+- getrandom: /dev/urandom alternative
+- mmap
+- munmap
+- mprotect
 
 ### TODO
 PROCESS
@@ -39,12 +46,7 @@ UNIX
 - epoll_* 
 - eventfd
 - timerds
-- signals -> kill, sigprocmask, singalfd, sigalstack
-
-MEMORY
-- mmap
-- munmap
-- mprotect
+- signals -> sigprocmask, singalfd, sigalstack
 
 FILESYSTEM
 - openat
@@ -58,6 +60,5 @@ NETWORKING
 MISC
 - futex: lowest level mutex primitive
 - seccomp: sandboxing primitive
-- getrandom: /dev/urandom alternative
 - nanosleep
 - io_uring_setup
