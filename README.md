@@ -29,13 +29,11 @@ PROCESS
 - dup2
 - tee
 - splice
+- waitpid
 
 ### TODO
 PROCESS
-- wait4
 - clone: syscall behind fork
-- exit_group
-- getpid / gettid: accessing process ids
 
 UNIX
 - epoll_* 
@@ -47,9 +45,6 @@ MEMORY
 - mmap
 - munmap
 - mprotect
-- brk
-- masvise
-- memfd_create
 
 FILESYSTEM
 - openat
@@ -58,7 +53,6 @@ FILESYSTEM
 - mkdir / unlink / rename
 
 NETWORKING
-- accept4
 - socketpair: bidirectional pipe and IPC
 
 MISC
