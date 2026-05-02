@@ -52,3 +52,25 @@
     - open `index.html` client in your web browser and use the very basic inputs
       to connect and send messages reflected in the server stdout and client
       page.
+
+### Proxy 
+- zero copy TCP fan out proxy using splice and tee syscalls 
+- listens on port 5001 on TCP port and forwards all received bytes to downstream
+  sub sockets on ports 5002 and 5003
+- zero copies/alloc in user space, all handled by kernel buffers and pipes 
+- splice = moves data between two fds in kernel space 
+- tee = duplicated bytes of data from one pipe fd to another pipe fd. does not
+  consume data duplicated and can therefore be copied by subsequent splice calls 
+- rather than reading data into user space and writing out to each sub, tee
+  duplicated kernel buffer references so same pages are visible in both kernel
+  pipes. neither copy touches the process memory 
+- similar concep to a traffic mirror which can receive traffic and shadow it
+  downstream. also similar to pub/sub models at a low level
+- usage:
+    - Terminal 1: `zig run proxy.zig` - start listener proxy on port 5001 
+    - Terminal 2: `nc -lk 127.0.0.1 5002` - start listener on port 5002 (sub0)
+    - Terminal 3: `nc -lk 127.0.0.1 50033` - start listener on port 5003 (sub1)
+    - Terminal 4: `echo "<message>" | nc 127.0.0.1 5001` - send message bytes to
+      listener proxy
+- what ever is sent in <message> should be simultaneously forwarded and output
+  to terminal 2 & 3 subscriber ports
