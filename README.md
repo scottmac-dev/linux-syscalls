@@ -37,3 +37,10 @@ MISC
 - mmap
 - munmap
 - mprotect
+
+IOURING
+- io_uring_setup
+- io_uring_enter
+- mmap 
+- munmap
+
