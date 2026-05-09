@@ -74,3 +74,17 @@
       listener proxy
 - what ever is sent in <message> should be simultaneously forwarded and output
   to terminal 2 & 3 subscriber ports
+
+### Traceroute
+- primitive reimplementation of the traceroute networking tool 
+- sends icmp packets varying over different ttl ranges to map network hops at
+  each stage 
+- uses raw sockets instead of datagrams for full control and accessibility to
+  packet structure and headers 
+- usage: 
+    - zig build-exe ping.zig
+    - do network priveleges on produced executable if failing due to permissions
+    - sudo ./traceroute <address>
+    - ctrl + C to exit, will print stats on exit
+- example: `sudo ./traceroute google.com`
+
