@@ -88,3 +88,12 @@
     - ctrl + C to exit, will print stats on exit
 - example: `sudo ./traceroute google.com`
 
+### Arp/netscan
+- sends broadcast arp request to discover ip addresses on the local network 
+- prints out list of ip addresses than responded to arp 
+- note: havent properly tested this as developing on wsl2, TODO - test on bare
+  metal linux
+- defaults to interface `eth0` unless specified via args
+- usage:
+    - zig build-exe netscan.zig
+    - sudo ./netscan
