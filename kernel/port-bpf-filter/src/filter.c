@@ -2,6 +2,7 @@
 #include <bpf/libbpf.h>
 #include <bpf/libbpf_legacy.h>
 #include <errno.h>
+#include <linux/bpf.h>
 #include <linux/if_link.h>
 #include <linux/pkt_sched.h>
 #include <net/if.h>
@@ -38,13 +39,29 @@ int main(int argc, char **argv) {
   // Load BPF object file
   struct bpf_object *obj = bpf_object__open("filter.bpf.o");
   if (!obj) {
-    fprintf(stderr, "Failed to load BPF object\n");
+    fprintf(stderr, "Failed to open BPF object\n");
     return 1;
   }
 
   // Get program fd
   struct bpf_program *prog =
       bpf_object__find_program_by_name(obj, "port_filter");
+
+  if (!prog) {
+    fprintf(stderr, "Failed to get find BPF program\n");
+    bpf_object__close(obj);
+    return 1;
+  }
+
+  // Set type
+  bpf_program__set_type(prog, BPF_PROG_TYPE_SCHED_CLS);
+
+  // Load
+  if (bpf_object__load(obj)) {
+    fprintf(stderr, "Failed to load BPF object: %s\n", strerror(errno));
+    bpf_object__close(obj);
+    return 1;
+  }
   int prog_fd = bpf_program__fd(prog);
 
   // Get interface index
