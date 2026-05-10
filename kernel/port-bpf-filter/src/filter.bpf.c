@@ -84,4 +84,4 @@ int port_filter(struct __sk_buff *skb) {
   return TC_ACT_OK;
 }
 
-char LISCENSE[] SEC("liscense") = "GPL";
+char LICENSE[] SEC("license") = "GPL";
