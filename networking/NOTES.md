@@ -91,9 +91,10 @@
 ### Arp/netscan
 - sends broadcast arp request to discover ip addresses on the local network 
 - prints out list of ip addresses than responded to arp 
-- note: havent properly tested this as developing on wsl2, TODO - test on bare
-  metal linux
-- defaults to interface `eth0` unless specified via args
+- defaults to interface `eth0` unless specified via args, this will return a
+  error if this is not your network interface 
+- to find your interface use `ip link` to find your connected interface 
 - usage:
     - zig build-exe netscan.zig
-    - sudo ./netscan
+    - sudo ./netscan <interface>
+- example: `sudo ./netscan eno0`
