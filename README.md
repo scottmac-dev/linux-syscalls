@@ -1,6 +1,5 @@
 ## Exploring, learning, documenting, implementing linux syscalls
 
-### Syscalls Done
 NETWORKING
 - socket
 - bind 
@@ -43,4 +42,3 @@ IOURING
 - io_uring_enter
 - mmap 
 - munmap
-
