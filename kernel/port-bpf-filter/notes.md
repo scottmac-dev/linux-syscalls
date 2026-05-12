@@ -35,3 +35,24 @@
   to network slot) ensures the numbers are read correctly
 - `__sk_buf` is a specialized restricted struc used in eBPF to access network
   packet metadata safely. it mirrors the kernels internal sk_buff socket buffer
+
+### testing 
+1. T1: Run filter program 
+    - `make`
+    - `sudo ./filter lo 8080`
+2. T2: Run web server on 8080 
+    - `python3 -m http.server 8080`
+3. T3..: Curl web server on 8080 on as many terminals as you like 
+    - `curl -v http://localhost:8080`
+
+### behaviour explained 
+- curl sends TCP SYN to port 8080 
+- eBPF program running in the kernel intercepts packet at TC ingress hook 
+- looks up stored blocked_port, matches on 8080, increments drop_count and
+  returns TC_ACT_SHOT
+- packet is dropped before kernel processes it 
+- curl never gets SYN-ACK back so it hangs, response never comes 
+- user space filter.c ticks and outputs current dropped and total dropped
+  packets 
+- other ports unblocked and free to use respond like normal 
+

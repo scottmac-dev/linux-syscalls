@@ -2,7 +2,6 @@
 #include <bpf/libbpf.h>
 #include <bpf/libbpf_legacy.h>
 #include <errno.h>
-#include <linux/bpf.h>
 #include <linux/if_link.h>
 #include <linux/pkt_sched.h>
 #include <net/if.h>
