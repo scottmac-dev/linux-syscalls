@@ -78,6 +78,7 @@ void pong(int fd, uint8_t *buf, int len) {
   uint32_t tmp = iph->saddr;
   iph->saddr = iph->daddr;
   iph->daddr = tmp;
+  iph->ttl = 32;
 
   // Compute checksum
   iph->check = 0;
