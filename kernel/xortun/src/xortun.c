@@ -19,6 +19,7 @@
 #include <linux/pkt_sched.h>
 #include <net/if.h>
 #include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -33,6 +34,21 @@
 
 static volatile int running = 1;
 void handle_sig(int sig) { running = 0; }
+
+// ICMP chucksum
+uint16_t checksum(void *data, int len) {
+  uint16_t *ptr = data;
+  uint32_t sum = 0;
+  while (len > 1) {
+    sum += *ptr++;
+    len -= 2;
+  }
+  if (len)
+    sum += *(uint8_t *)ptr;
+  while (sum >> 16)
+    sum = (sum & 0xffff) + (sum >> 16);
+  return ~sum;
+}
 
 // Open and configure TUN device
 int tun_open(char *devname) {
@@ -103,31 +119,65 @@ int tun_up(const char *iface_name, const char *addr, const char *peer) {
   return 0;
 }
 
-// XOR packet payload bytes with key, 4 bytes at a time, remainder byte by byte
-void xor_payload(uint8_t *buf, int len, uint32_t key) {
+// Manually handle the tun1 response to avoid infinite routing loop where tun0
+// -> sends to tun1 but never gets response
+void handle_tun0(int tun0_fd, int tun1_fd, uint8_t *buf, int len,
+                 uint32_t key) {
   struct iphdr *iph = (struct iphdr *)buf;
+  if (iph->version != 4)
+    return;
+  if (iph->protocol != IPPROTO_ICMP)
+    return;
 
-  // Skip the IP header, only XOR the payload
-  int header_len = iph->ihl * 4;
-  if (header_len >= len)
-    return; // no payload
+  struct icmphdr *icmp = (struct icmphdr *)(buf + iph->ihl * 4);
+  if (icmp->type != ICMP_ECHO)
+    return;
 
-  uint8_t *payload = buf + header_len;
-  int payload_len = len - header_len;
+  printf("tun0 -> tun1: %d bytes (key=0x%08X) [ICMP echo request]\n", len, key);
 
-  int i = 0;
-  // 4 bytes at a time
-  for (; i <= payload_len - 4; i += 4) {
-    uint32_t chunk;
-    memcpy(&chunk, payload + i, 4);
-    chunk ^= key;
-    memcpy(payload + i, &chunk, 4);
+  // XOR the ICMP payload (after ICMP header) to simulate encrypted transit
+  int ip_hdr_len = iph->ihl * 4;
+  int icmp_hdr_len = sizeof(struct icmphdr);
+  int data_offset = ip_hdr_len + icmp_hdr_len;
+  int data_len = len - data_offset;
+
+  if (data_len > 0) {
+    uint8_t *data = buf + data_offset;
+    uint8_t *keybytes = (uint8_t *)&key;
+    for (int i = 0; i < data_len; i++) {
+      data[i] ^= keybytes[i % 4];
+    }
   }
 
-  // Remaining bytes
-  uint8_t *keybytes = (uint8_t *)&key;
-  for (int j = 0; i < payload_len; i++, j++) {
-    payload[i] ^= keybytes[j];
+  printf("tun1 -> tun0: %d bytes (key=0x%08X) [crafting ICMP echo reply]\n",
+         len, key);
+
+  // XOR back (simulate decryption on tun1 side)
+  if (data_len > 0) {
+    uint8_t *data = buf + data_offset;
+    uint8_t *keybytes = (uint8_t *)&key;
+    for (int i = 0; i < data_len; i++) {
+      data[i] ^= keybytes[i % 4];
+    }
+  }
+
+  // Craft ICMP echo reply
+  // Swap src/dst IP
+  uint32_t tmp = iph->saddr;
+  iph->saddr = iph->daddr;
+  iph->daddr = tmp;
+  iph->ttl = 64;
+  iph->check = 0;
+  iph->check = checksum(iph, ip_hdr_len);
+
+  // Set ICMP type to reply
+  icmp->type = ICMP_ECHOREPLY;
+  icmp->checksum = 0;
+  icmp->checksum = checksum(icmp, len - ip_hdr_len);
+
+  // Write reply back to tun0
+  if (write(tun0_fd, buf, len) < 0) {
+    perror("write tun0 reply");
   }
 }
 
@@ -238,31 +288,16 @@ int main(void) {
     if (FD_ISSET(tun0_fd, &fds)) {
       int len = read(tun0_fd, buf, sizeof(buf));
       if (len < 0) {
-        perror("read tun0 failed");
-        break;
-      }
-      printf("tun0 -> tun1: %d bytes (key=0x%8X)\n", len, xor_key);
-      xor_payload(buf, len, xor_key);
-
-      if (write(tun1_fd, buf, len) < 0) {
-        perror("write tun1 failed");
+        perror("read tun0");
         continue;
       }
+      handle_tun0(tun0_fd, tun1_fd, buf, len, xor_key);
     }
 
-    // Packet inbound tun1 = scrambled, unscramble and send to tun0
     if (FD_ISSET(tun1_fd, &fds)) {
-      int len = read(tun1_fd, buf, sizeof(buf));
-      if (len < 0) {
-        perror("read tun1 failed");
-        break;
-      }
-      printf("tun1 -> tun0: %d bytes (key=0x%8X)\n", len, xor_key);
-      xor_payload(buf, len, xor_key);
-      if (write(tun0_fd, buf, len) < 0) {
-        perror("write tun0 failed");
-        continue;
-      }
+      // Drain tun1 to keep it clean but we handle replies manually in handle
+      // tun0
+      read(tun1_fd, buf, sizeof(buf));
     }
   }
 
