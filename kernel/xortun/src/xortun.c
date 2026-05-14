@@ -24,6 +24,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #define MTU 2048
@@ -52,6 +53,53 @@ int tun_open(char *devname) {
 
   strncpy(devname, ifr.ifr_ifrn.ifrn_name, IFNAMSIZ); // copy back
   return fd;
+}
+
+// Bring tun interface up to prevent race condition of doing manually
+// eg. sudo ip addr add 10.0.0.1 peer 10.0.0.2 dev %s;
+// sudo ip link set %s up
+int tun_up(const char *iface_name, const char *addr, const char *peer) {
+  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sockfd < 0) {
+    perror("create tun socket failed");
+    return -1;
+  }
+  struct ifreq ifr = {0};
+  strncpy(ifr.ifr_name, iface_name, IFNAMSIZ);
+
+  // Set address
+  struct sockaddr_in *sin = (struct sockaddr_in *)&ifr.ifr_addr;
+  sin->sin_family = AF_INET;
+  inet_pton(AF_INET, addr, &sin->sin_addr);
+  if (ioctl(sockfd, SIOCSIFADDR, &ifr) < 0) {
+    perror("SIOCSIFADDR");
+    close(sockfd);
+    return -1;
+  }
+
+  // Set peer address
+  inet_pton(AF_INET, peer, &sin->sin_addr);
+  if (ioctl(sockfd, SIOCSIFDSTADDR, &ifr) < 0) {
+    perror("SIOCSIFDSTADDR");
+    close(sockfd);
+    return -1;
+  }
+
+  // Bring interface up
+  if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0) {
+    perror("SIOCGIFFLAGS");
+    close(sockfd);
+    return -1;
+  }
+  ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
+  if (ioctl(sockfd, SIOCSIFFLAGS, &ifr) < 0) {
+    perror("SIOCSIFFLAGS");
+    close(sockfd);
+    return -1;
+  }
+
+  close(sockfd);
+  return 0;
 }
 
 // XOR packet bytes with key, 4 bytes at a time, remainder byte by byte
@@ -128,16 +176,30 @@ int main(void) {
     return 1;
   }
 
-  // Output instructions
   printf("Opened %s and %s\n", tun0_name, tun1_name);
-  printf("Configure interfaces with:\n");
-  printf("  sudo ip addr add 10.0.0.1 peer 10.0.0.2 dev %s\n", tun0_name);
-  printf("  sudo ip link set %s up\n", tun0_name);
-  printf("  sudo ip addr add 10.0.0.1 peer 10.0.0.2 dev %s\n", tun1_name);
-  printf("  sudo ip link set %s up\n", tun1_name);
-  printf("Then ping addr: ping 10.0.0.2\n");
-  printf("Ctrl+C to stop\n\n");
+  printf("Configuring interfaces...\n");
 
+  if (tun_up(tun0_name, "10.0.0.1", "10.0.0.2") < 0) {
+    fprintf(stderr, "Failed to bring up %s\n", tun0_name);
+    close(tun0_fd);
+    close(tun1_fd);
+    bpf_object__close(obj);
+    return 1;
+  }
+  printf("%s up: 10.0.0.1 peer 10.0.0.2\n", tun0_name);
+
+  if (tun_up(tun1_name, "10.1.0.1", "10.1.0.2") < 0) {
+    fprintf(stderr, "Failed to bring up %s\n", tun1_name);
+    close(tun0_fd);
+    close(tun1_fd);
+    bpf_object__close(obj);
+    return 1;
+  }
+  printf("%s up: 10.1.0.1 peer 10.1.0.2\n", tun1_name);
+
+  printf("\nBoth interfaces up, starting loop\n");
+  printf("ping 10.0.0.2 to test\n");
+  printf("Press Ctrl+C to stop\n\n");
   uint8_t buf[MTU];
   int maxfd = (tun0_fd > tun1_fd ? tun0_fd : tun1_fd) + 1;
 
