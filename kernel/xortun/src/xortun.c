@@ -18,6 +18,7 @@
 #include <linux/if_tun.h>
 #include <linux/pkt_sched.h>
 #include <net/if.h>
+#include <netinet/ip.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -102,22 +103,31 @@ int tun_up(const char *iface_name, const char *addr, const char *peer) {
   return 0;
 }
 
-// XOR packet bytes with key, 4 bytes at a time, remainder byte by byte
-void xor_packet(uint8_t *buf, int len, uint32_t key) {
-  int i = 0;
+// XOR packet payload bytes with key, 4 bytes at a time, remainder byte by byte
+void xor_payload(uint8_t *buf, int len, uint32_t key) {
+  struct iphdr *iph = (struct iphdr *)buf;
 
+  // Skip the IP header, only XOR the payload
+  int header_len = iph->ihl * 4;
+  if (header_len >= len)
+    return; // no payload
+
+  uint8_t *payload = buf + header_len;
+  int payload_len = len - header_len;
+
+  int i = 0;
   // 4 bytes at a time
-  for (; i <= len - 4; i += 4) {
+  for (; i <= payload_len - 4; i += 4) {
     uint32_t chunk;
-    memcpy(&chunk, buf + i, 4); // get bytes
-    chunk ^= key;               // XOR
-    memcpy(buf + i, &chunk, 4); // replace bytes
+    memcpy(&chunk, payload + i, 4);
+    chunk ^= key;
+    memcpy(payload + i, &chunk, 4);
   }
 
-  // Handle overflow bytes
+  // Remaining bytes
   uint8_t *keybytes = (uint8_t *)&key;
-  for (int j = 0; i < len; i++, j++) {
-    buf[i] ^= keybytes[j];
+  for (int j = 0; i < payload_len; i++, j++) {
+    payload[i] ^= keybytes[j];
   }
 }
 
@@ -232,10 +242,11 @@ int main(void) {
         break;
       }
       printf("tun0 -> tun1: %d bytes (key=0x%8X)\n", len, xor_key);
-      xor_packet(buf, len, xor_key);
+      xor_payload(buf, len, xor_key);
+
       if (write(tun1_fd, buf, len) < 0) {
         perror("write tun1 failed");
-        break;
+        continue;
       }
     }
 
@@ -247,10 +258,10 @@ int main(void) {
         break;
       }
       printf("tun1 -> tun0: %d bytes (key=0x%8X)\n", len, xor_key);
-      xor_packet(buf, len, xor_key);
+      xor_payload(buf, len, xor_key);
       if (write(tun0_fd, buf, len) < 0) {
         perror("write tun0 failed");
-        break;
+        continue;
       }
     }
   }
