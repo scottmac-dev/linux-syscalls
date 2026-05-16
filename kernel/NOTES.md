@@ -39,7 +39,7 @@ syscall-latency-probe
   mount point and adjust lat-read.bpf.c accordingly
 - use the following operations to test different cached and disk read ops and
   see output.
-    find / -name "*.c" 2>/dev/null | head -20
-    cat /var/log/syslog
-    dd if=/dev/sda of=/dev/null bs=4096 count=1000 2>/dev/null
+    - find / -name "*.c" 2>/dev/null | head -20
+    - cat /var/log/syslog
+    - dd if=/dev/sda of=/dev/null bs=4096 count=1000 2>/dev/null
 
