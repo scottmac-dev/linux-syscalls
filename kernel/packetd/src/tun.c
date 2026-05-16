@@ -57,16 +57,14 @@ uint16_t checksum(void *data, int len) {
 
 // Respond to ping requests with appropriate return
 // simulating device at end of interface
-void pong(int fd, uint8_t *buf, int len) {
+void handle_reply(int fd, uint8_t *buf, int len) {
   struct iphdr *iph = (struct iphdr *)buf;
-
-  // Only handle ICMP in minimal example
+  if (iph->version != 4)
+    return;
   if (iph->protocol != IPPROTO_ICMP)
     return;
 
   struct icmphdr *icmp = (struct icmphdr *)(buf + iph->ihl * 4);
-
-  // Only handle echo requests PING
   if (icmp->type != ICMP_ECHO)
     return;
 
@@ -74,26 +72,24 @@ void pong(int fd, uint8_t *buf, int len) {
          inet_ntoa(*(struct in_addr *)&iph->saddr),
          ntohs(icmp->un.echo.sequence));
 
-  // Build reply, reuse packet in place but swap src/dst
+  // Craft ICMP echo reply
+  // Swap src/dst IP
+  int ip_hdr_len = iph->ihl * 4;
   uint32_t tmp = iph->saddr;
   iph->saddr = iph->daddr;
   iph->daddr = tmp;
-  iph->ttl = 32;
-
-  // Compute checksum
+  iph->ttl = 64;
   iph->check = 0;
-  iph->check = checksum(iph, iph->ihl * 4);
+  iph->check = checksum(iph, ip_hdr_len);
 
-  // Change to echo reply
+  // Set ICMP type to reply
   icmp->type = ICMP_ECHOREPLY;
-
-  // Checksum
   icmp->checksum = 0;
-  icmp->checksum = checksum(icmp, len - iph->ihl * 4);
+  icmp->checksum = checksum(icmp, len - ip_hdr_len);
 
-  // Write reply back to tun device
+  // Write reply back to tun0
   if (write(fd, buf, len) < 0) {
-    perror("write tun failed");
+    perror("write tun0 reply");
   }
 }
 
@@ -121,7 +117,7 @@ int main(void) {
       perror("read failed");
       break;
     }
-    pong(fd, buf, len);
+    handle_reply(fd, buf, len);
   }
 
   close(fd);
